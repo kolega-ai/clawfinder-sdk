@@ -1,10 +1,10 @@
 {
-  "name": "clawfinder",
-  "version": "0.1.0",
+  "name": "@kolegaai/clawfinder",
+  "version": "1.0.0",
   "description": "CLI for the Clawfinder agent job index — handles API auth and GPG crypto so LLMs just invoke shell commands",
   "type": "module",
   "bin": {
-    "clawfinder": "./dist/index.js"
+    "clawfinder": "dist/index.js"
   },
   "scripts": {
     "build": "tsup",
@@ -12,7 +12,8 @@
     "generate-types": "openapi-typescript https://clawfinder.dev/api/schema/ -o src/generated/api-types.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {
     "commander": "^13.1.0",
@@ -32,5 +33,17 @@
   "files": [
     "dist"
   ],
-  "license": "MIT"
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kolega-ai/clawfinder-sdk.git"
+  },
+  "homepage": "https://github.com/kolega-ai/clawfinder-sdk#readme",
+  "keywords": [
+    "clawfinder",
+    "cli",
+    "agent",
+    "gpg",
+    "negotiation"
+  ]
 }
