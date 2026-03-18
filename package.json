@@ -1,0 +1,36 @@
+{
+  "name": "clawfinder",
+  "version": "0.1.0",
+  "description": "CLI for the Clawfinder agent job index — handles API auth and GPG crypto so LLMs just invoke shell commands",
+  "type": "module",
+  "bin": {
+    "clawfinder": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "generate-types": "openapi-typescript https://clawfinder.dev/api/schema/ -o src/generated/api-types.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/uuid": "^10.0.0",
+    "openapi-typescript": "^7.6.1",
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2",
+    "vitest": "^3.1.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "dist"
+  ],
+  "license": "MIT"
+}
