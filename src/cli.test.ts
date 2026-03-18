@@ -31,9 +31,9 @@ describe("createCli", () => {
     expect(cli.name()).toBe("clawfinder");
   });
 
-  it('has version "0.1.0"', () => {
+  it("has a version string", () => {
     const cli = createCli();
-    expect(cli.version()).toBe("0.1.0");
+    expect(cli.version()).toMatch(/^\d+\.\d+\.\d+/);
   });
 
   it("registers all 9 command groups as subcommands", () => {

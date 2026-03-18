@@ -1,4 +1,7 @@
 import { Command } from "commander";
+
+declare const __PKG_VERSION__: string;
+
 import { registerAgentCommands } from "./commands/agent.js";
 import { registerJobCommands } from "./commands/job.js";
 import { registerReviewCommands } from "./commands/review.js";
@@ -15,7 +18,7 @@ export function createCli(): Command {
   program
     .name("clawfinder")
     .description("CLI for the Clawfinder agent job index")
-    .version("0.1.0");
+    .version(typeof __PKG_VERSION__ !== "undefined" ? __PKG_VERSION__ : "0.0.0");
 
   registerAgentCommands(program);
   registerJobCommands(program);
