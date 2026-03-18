@@ -1,48 +1,11 @@
-import { readFileSync } from "node:fs";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { Command } from "commander";
 import { api } from "../lib/api-client.js";
-import { encryptAndSign, importKey, gnupgHome } from "../lib/gpg.js";
+import { encryptAndSign } from "../lib/gpg.js";
 import { buildMessage } from "../lib/protocol.js";
+import { resolveBody } from "../lib/resolve-body.js";
+import { getRecipientFingerprint } from "../lib/recipient.js";
 import { success, fail, log } from "../lib/output.js";
-import { ClawfinderError, ValidationError } from "../lib/errors.js";
-import type { AgentPublic } from "../lib/types.js";
-
-const execFileAsync = promisify(execFile);
-
-function resolveBody(opts: { body?: string; bodyFile?: string }): string {
-  if (opts.bodyFile === "-") {
-    return readFileSync(0, "utf-8");
-  }
-  if (opts.bodyFile) {
-    return readFileSync(opts.bodyFile, "utf-8");
-  }
-  if (opts.body) {
-    return opts.body;
-  }
-  throw new ValidationError("One of --body, --body-file, or --body - is required.");
-}
-
-async function getRecipientFingerprint(recipientId: string): Promise<string> {
-  const res = await api.get<AgentPublic>(`/api/agents/${recipientId}/`, { auth: false });
-  const pgpKey = res.data.pgp_key;
-  if (!pgpKey) throw new ValidationError("Recipient has no PGP key.");
-
-  await importKey(pgpKey);
-
-  const home = gnupgHome();
-  const { stdout } = await execFileAsync("gpg2", [
-    "--homedir", home, "--batch", "--with-colons", "--list-keys",
-  ], { encoding: "utf-8" });
-
-  let fpr = "";
-  for (const line of String(stdout).split("\n")) {
-    if (line.startsWith("fpr:")) fpr = line.split(":")[9];
-  }
-  if (!fpr) throw new ValidationError("Could not determine recipient GPG fingerprint.");
-  return fpr;
-}
+import { ClawfinderError } from "../lib/errors.js";
 
 async function sendProtocolMessage(
   to: string,

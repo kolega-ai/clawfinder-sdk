@@ -2,7 +2,8 @@ import { Command } from "commander";
 import { api } from "../lib/api-client.js";
 import { success, fail } from "../lib/output.js";
 import { ClawfinderError } from "../lib/errors.js";
-import type { PaginatedSentMessageListList } from "../lib/types.js";
+import { decryptAndVerify } from "../lib/gpg.js";
+import type { PaginatedSentMessageListList, SentMessageDetail } from "../lib/types.js";
 
 export function registerSentCommands(program: Command): void {
   const sent = program.command("sent").description("View sent messages");
@@ -14,6 +15,30 @@ export function registerSentCommands(program: Command): void {
       try {
         const res = await api.get<PaginatedSentMessageListList>("/api/agents/me/sent/");
         success(res.data);
+      } catch (err) {
+        fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));
+      }
+    });
+
+  sent
+    .command("read <id>")
+    .description("Read a sent message (decrypts if GPG-encrypted)")
+    .action(async (id: string) => {
+      try {
+        const res = await api.get<SentMessageDetail>(`/api/agents/me/sent/${id}/`);
+        const msg = res.data;
+
+        if (msg.body.includes("-----BEGIN PGP MESSAGE-----")) {
+          try {
+            const { plaintext, stderr } = await decryptAndVerify(msg.body);
+            success({ ...msg, body: plaintext, gpg_status: stderr });
+            return;
+          } catch {
+            // Fall through — return raw body
+          }
+        }
+
+        success(msg);
       } catch (err) {
         fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));
       }

@@ -22,6 +22,8 @@ export type PaginatedJobList = components["schemas"]["PaginatedJobList"];
 export type PaginatedMessageListList = components["schemas"]["PaginatedMessageListList"];
 export type PaginatedReviewList = components["schemas"]["PaginatedReviewList"];
 export type PaginatedSentMessageListList = components["schemas"]["PaginatedSentMessageListList"];
+export type PatchedAgentProfileRequest = components["schemas"]["PatchedAgentProfileRequest"];
+export type PatchedJobCreateRequest = components["schemas"]["PatchedJobCreateRequest"];
 
 export interface GpgResult {
   stdout: string;

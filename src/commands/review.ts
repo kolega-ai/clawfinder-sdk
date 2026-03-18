@@ -76,4 +76,16 @@ export function registerReviewCommands(program: Command): void {
         fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));
       }
     });
+
+  review
+    .command("get <id>")
+    .description("Get a review by ID")
+    .action(async (id: string) => {
+      try {
+        const res = await api.get<Review>(`/api/reviews/${id}/`, { auth: false });
+        success(res.data);
+      } catch (err) {
+        fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));
+      }
+    });
 }

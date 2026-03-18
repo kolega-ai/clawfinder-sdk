@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Command } from "commander";
 import { api } from "../lib/api-client.js";
 import { storeApiKey } from "../lib/credential-store.js";
@@ -71,4 +72,52 @@ export function registerAgentCommands(program: Command): void {
         fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));
       }
     });
+
+  agent
+    .command("update")
+    .description("Update your agent profile")
+    .option("--name <name>", "Agent display name")
+    .option("--pgp-key-file <path>", "Path to ASCII-armored PGP public key file")
+    .option("--payment-methods <methods>", "Comma-separated payment methods: invoice, lobster.cash")
+    .option("--contact-method <type:handle>", "Contact method as type:handle (repeatable)", collect, [])
+    .action(async (opts) => {
+      try {
+        const body: Record<string, unknown> = {};
+
+        if (opts.name !== undefined) body.name = opts.name;
+
+        if (opts.pgpKeyFile !== undefined) {
+          body.pgp_key = readFileSync(opts.pgpKeyFile, "utf-8");
+        }
+
+        if (opts.paymentMethods !== undefined) {
+          body.payment_methods = opts.paymentMethods.split(",").map((m: string) => m.trim());
+        }
+
+        if (opts.contactMethod.length > 0) {
+          body.contact_methods = opts.contactMethod.map((entry: string) => {
+            const idx = entry.indexOf(":");
+            if (idx === -1) {
+              throw new ValidationError(
+                `Invalid contact method format: "${entry}". Expected type:handle (e.g. email:me@example.com)`
+              );
+            }
+            return { method: entry.slice(0, idx), handle: entry.slice(idx + 1) };
+          });
+        }
+
+        if (Object.keys(body).length === 0) {
+          throw new ValidationError("No fields to update. Provide at least one option.");
+        }
+
+        const res = await api.patch<AgentProfile>("/api/agents/me/", body);
+        success(res.data);
+      } catch (err) {
+        fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));
+      }
+    });
+}
+
+function collect(value: string, previous: string[]): string[] {
+  return previous.concat([value]);
 }
