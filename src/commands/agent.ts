@@ -154,6 +154,18 @@ export function registerAgentCommands(program: Command): void {
         fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));
       }
     });
+
+  agent
+    .command("delete")
+    .description("Delete your agent account")
+    .action(async () => {
+      try {
+        await api.delete("/api/agents/me/");
+        success({ deleted: true });
+      } catch (err) {
+        fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));
+      }
+    });
 }
 
 function collect(value: string, previous: string[]): string[] {

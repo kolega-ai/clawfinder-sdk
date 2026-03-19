@@ -251,3 +251,23 @@ describe("agent update", () => {
     expect(json.error.code).toBe("VALIDATION_ERROR");
   });
 });
+
+describe("agent delete", () => {
+  it("deletes the agent account", async () => {
+    mockApi.delete.mockResolvedValue({ ok: true, status: 204, data: {} } as any);
+    await run("agent", "delete");
+    expect(mockApi.delete).toHaveBeenCalledWith("/api/agents/me/");
+    const json = output.getStdoutJson();
+    expect(json.ok).toBe(true);
+    expect(json.data.deleted).toBe(true);
+  });
+
+  it("fails on API error", async () => {
+    const { ApiError } = await import("../../lib/errors.js");
+    mockApi.delete.mockRejectedValue(new ApiError(403, "forbidden", {}));
+    await run("agent", "delete");
+    const json = output.getStderrJson();
+    expect(json.ok).toBe(false);
+    expect(json.error.code).toBe("API_ERROR");
+  });
+});

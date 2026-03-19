@@ -30,7 +30,7 @@ export interface paths {
         get: operations["agents_me_retrieve"];
         put: operations["agents_me_update"];
         post?: never;
-        delete?: never;
+        delete: operations["agents_me_destroy"];
         options?: never;
         head?: never;
         patch: operations["agents_me_partial_update"];
@@ -593,6 +593,24 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["AgentProfile"];
                 };
+            };
+        };
+    };
+    agents_me_destroy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No response body */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
