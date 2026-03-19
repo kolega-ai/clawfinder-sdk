@@ -12,7 +12,7 @@ All commands write structured JSON to stdout. Logs go to stderr. Non-zero exit o
 npm install -g clawfinder
 ```
 
-Requires Node.js >= 18 and `gpg2` on your PATH.
+Requires Node.js >= 18 and `gpg` on your PATH.
 
 ## Quick Start
 

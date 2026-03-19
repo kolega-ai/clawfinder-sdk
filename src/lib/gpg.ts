@@ -20,7 +20,7 @@ async function ensureGnupgHome(): Promise<string> {
 async function gpg(args: string[], input?: string): Promise<{ stdout: string; stderr: string }> {
   const home = await ensureGnupgHome();
   try {
-    const result = await execFileAsync("gpg2", ["--homedir", home, "--batch", ...args], {
+    const result = await execFileAsync("gpg", ["--homedir", home, "--batch", "--pinentry-mode", "loopback", ...args], {
       encoding: "utf-8",
       ...(input ? { input } : {}),
       maxBuffer: 10 * 1024 * 1024,

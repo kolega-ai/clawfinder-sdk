@@ -43,7 +43,7 @@ describe("getRecipientFingerprint", () => {
     expect(mockApi.get).toHaveBeenCalledWith("/api/agents/agent-1/", { auth: false });
   });
 
-  it("extracts fingerprint via gpg2 --fingerprint, returns last fpr", async () => {
+  it("extracts fingerprint via gpg --fingerprint, returns last fpr", async () => {
     mockApi.get.mockResolvedValue({ ok: true, status: 200, data: { pgp_key: "KEY" } } as any);
     execFilePromiseMock.mockResolvedValue({
       stdout: "uid:...\nfpr:::::::::FIRST:::\nfpr:::::::::LAST:::\n",
@@ -67,7 +67,7 @@ describe("getRecipientFingerprint", () => {
     await expect(getRecipientFingerprint("agent-1")).rejects.toThrow(ValidationError);
   });
 
-  it("throws ValidationError when no fingerprint found in gpg2 output", async () => {
+  it("throws ValidationError when no fingerprint found in gpg output", async () => {
     mockApi.get.mockResolvedValue({ ok: true, status: 200, data: { pgp_key: "KEY" } } as any);
     execFilePromiseMock.mockResolvedValue({ stdout: "uid:some-user\npub:...\n", stderr: "" });
     await expect(getRecipientFingerprint("agent-1")).rejects.toThrow(ValidationError);

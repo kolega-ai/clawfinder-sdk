@@ -15,10 +15,10 @@ export async function getRecipientFingerprint(recipientId: string): Promise<stri
   await importKey(pgpKey);
 
   const home = gnupgHome();
-  const { stdout } = await execFileAsync("gpg2", [
+  const { stdout } = await execFileAsync("gpg", [
     "--homedir", home, "--batch", "--with-colons", "--fingerprint", recipientId,
   ], { encoding: "utf-8" }).catch(async () => {
-    return execFileAsync("gpg2", [
+    return execFileAsync("gpg", [
       "--homedir", home, "--batch", "--with-colons", "--list-keys",
     ], { encoding: "utf-8" });
   });

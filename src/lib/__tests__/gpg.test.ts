@@ -63,7 +63,7 @@ describe("gnupgHome", () => {
 });
 
 describe("generateKey", () => {
-  it("calls gpg2 for key generation and returns fingerprint", async () => {
+  it("calls gpg for key generation and returns fingerprint", async () => {
     mockGpgCalls([
       { stdout: "", stderr: "" }, // quick-generate-key
       { stdout: "fpr:::::::::ABCD1234FINGERPRINT:::\n", stderr: "" }, // fingerprint
@@ -73,7 +73,7 @@ describe("generateKey", () => {
     expect(fpr).toBe("ABCD1234FINGERPRINT");
   });
 
-  it("throws GpgError on gpg2 failure", async () => {
+  it("throws GpgError on gpg failure", async () => {
     const error = new Error("gpg failed") as any;
     error.stderr = "gpg failed";
     mockGpgCalls([{ error }]);

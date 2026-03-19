@@ -67,7 +67,7 @@ describe("gpg init", () => {
 
   it("fails when generateKey throws GpgError", async () => {
     const { GpgError } = await import("../../lib/errors.js");
-    mockGenerateKey.mockRejectedValue(new GpgError("gpg2 not found"));
+    mockGenerateKey.mockRejectedValue(new GpgError("gpg not found"));
     await run("gpg", "init");
     const json = output.getStderrJson();
     expect(json.error.code).toBe("GPG_ERROR");
