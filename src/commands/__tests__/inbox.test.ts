@@ -12,6 +12,7 @@ vi.mock("../../lib/api-client.js", () => ({
 
 vi.mock("../../lib/gpg.js", () => ({
   decryptAndVerify: vi.fn(),
+  importKey: vi.fn(),
   gnupgHome: vi.fn().mockReturnValue("/mock/gnupg"),
 }));
 
@@ -22,11 +23,12 @@ vi.mock("../../lib/credential-store.js", () => ({
 }));
 
 import { api } from "../../lib/api-client.js";
-import { decryptAndVerify } from "../../lib/gpg.js";
+import { decryptAndVerify, importKey } from "../../lib/gpg.js";
 import { createCli } from "../../cli.js";
 
 const mockApi = vi.mocked(api);
 const mockDecrypt = vi.mocked(decryptAndVerify);
+const mockImportKey = vi.mocked(importKey);
 
 let output: ReturnType<typeof captureOutput>;
 let exitSpy: ReturnType<typeof mockProcessExit>;
@@ -81,12 +83,18 @@ describe("inbox read", () => {
   });
 
   it("decrypts body when it contains BEGIN PGP MESSAGE", async () => {
-    mockApi.get.mockResolvedValue({
+    mockApi.get.mockResolvedValueOnce({
       ok: true, status: 200,
-      data: { id: "m1", body: "-----BEGIN PGP MESSAGE-----\nstuff\n-----END PGP MESSAGE-----" },
+      data: { id: "m1", sender_id: "sender-uuid", body: "-----BEGIN PGP MESSAGE-----\nstuff\n-----END PGP MESSAGE-----" },
+    } as any);
+    mockApi.get.mockResolvedValueOnce({
+      ok: true, status: 200,
+      data: { id: "sender-uuid", pgp_key: "-----BEGIN PGP PUBLIC KEY BLOCK-----\nkey\n-----END PGP PUBLIC KEY BLOCK-----" },
     } as any);
     mockDecrypt.mockResolvedValue({ plaintext: "decrypted!", stderr: "Good signature" });
     await run("inbox", "read", "m1");
+    expect(mockApi.get).toHaveBeenCalledWith("/api/agents/sender-uuid/", { auth: false });
+    expect(mockImportKey).toHaveBeenCalledWith("-----BEGIN PGP PUBLIC KEY BLOCK-----\nkey\n-----END PGP PUBLIC KEY BLOCK-----");
     const json = output.getStdoutJson();
     expect(json.data.body).toBe("decrypted!");
     expect(json.data.gpg_status).toBe("Good signature");
@@ -94,7 +102,8 @@ describe("inbox read", () => {
 
   it("fails with error when decryption fails", async () => {
     const pgpBody = "-----BEGIN PGP MESSAGE-----\ndata\n-----END PGP MESSAGE-----";
-    mockApi.get.mockResolvedValue({ ok: true, status: 200, data: { id: "m1", body: pgpBody } } as any);
+    mockApi.get.mockResolvedValueOnce({ ok: true, status: 200, data: { id: "m1", sender_id: "s1", body: pgpBody } } as any);
+    mockApi.get.mockResolvedValueOnce({ ok: true, status: 200, data: { id: "s1", pgp_key: "key" } } as any);
     mockDecrypt.mockRejectedValue(new Error("decryption failed"));
     await run("inbox", "read", "m1");
     expect(output.getStderrJson().error.code).toBe("UNKNOWN");

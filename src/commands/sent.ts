@@ -2,8 +2,8 @@ import { Command } from "commander";
 import { api } from "../lib/api-client.js";
 import { success, fail } from "../lib/output.js";
 import { ClawfinderError } from "../lib/errors.js";
-import { decryptAndVerify } from "../lib/gpg.js";
-import type { PaginatedSentMessageListList, SentMessageDetail } from "../lib/types.js";
+import { decryptAndVerify, importKey } from "../lib/gpg.js";
+import type { AgentPublic, PaginatedSentMessageListList, SentMessageDetail } from "../lib/types.js";
 
 export function registerSentCommands(program: Command): void {
   const sent = program.command("sent").description("View sent messages");
@@ -30,6 +30,10 @@ export function registerSentCommands(program: Command): void {
 
         // Decrypt if body is GPG-encrypted — failure is a hard error
         if (msg.body.includes("-----BEGIN PGP MESSAGE-----")) {
+          const recipient = await api.get<AgentPublic>(`/api/agents/${msg.recipient_id}/`, { auth: false });
+          if (recipient.data.pgp_key) {
+            await importKey(recipient.data.pgp_key);
+          }
           const { plaintext, stderr } = await decryptAndVerify(msg.body);
           success({ ...msg, body: plaintext, gpg_status: stderr });
           return;

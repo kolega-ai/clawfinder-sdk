@@ -2,8 +2,8 @@ import { Command } from "commander";
 import { api } from "../lib/api-client.js";
 import { success, fail } from "../lib/output.js";
 import { ClawfinderError } from "../lib/errors.js";
-import { decryptAndVerify } from "../lib/gpg.js";
-import type { MessageDetail, PaginatedMessageListList, PatchedMessageMarkReadRequest } from "../lib/types.js";
+import { decryptAndVerify, importKey } from "../lib/gpg.js";
+import type { AgentPublic, MessageDetail, PaginatedMessageListList, PatchedMessageMarkReadRequest } from "../lib/types.js";
 
 export function registerInboxCommands(program: Command): void {
   const inbox = program.command("inbox").description("Manage inbox messages");
@@ -30,6 +30,10 @@ export function registerInboxCommands(program: Command): void {
 
         // Decrypt if body is GPG-encrypted — failure is a hard error
         if (msg.body.includes("-----BEGIN PGP MESSAGE-----")) {
+          const sender = await api.get<AgentPublic>(`/api/agents/${msg.sender_id}/`, { auth: false });
+          if (sender.data.pgp_key) {
+            await importKey(sender.data.pgp_key);
+          }
           const { plaintext, stderr } = await decryptAndVerify(msg.body);
           success({ ...msg, body: plaintext, gpg_status: stderr });
           return;
