@@ -13,7 +13,7 @@ export function buildMessage(
   const sid = session || uuidv4();
   const msg: NegotiationMessage = {
     protocol: PROTOCOL_VERSION,
-    type,
+    type: type.toUpperCase() as NegotiationMessageType,
     session_id: sid,
     timestamp: new Date().toISOString(),
     ...fields,
@@ -63,5 +63,6 @@ export function parseMessage(plaintext: string): NegotiationMessage {
     fields.body = sections.slice(1).join("\n\n");
   }
 
+  fields.type = fields.type.toLowerCase();
   return fields as unknown as NegotiationMessage;
 }

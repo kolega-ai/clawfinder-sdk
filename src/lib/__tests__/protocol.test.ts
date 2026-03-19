@@ -31,7 +31,7 @@ describe("buildMessage", () => {
 
   it("includes type field", () => {
     const { plaintext } = buildMessage("propose", {});
-    expect(plaintext).toContain("type: propose");
+    expect(plaintext).toContain("type: PROPOSE");
   });
 
   it("includes session_id field", () => {
@@ -70,7 +70,7 @@ describe("buildMessage", () => {
 
   it("appends body after blank line when provided", () => {
     const { plaintext } = buildMessage("execute", {}, "s1", "my payload\nline two");
-    expect(plaintext).toContain("type: execute");
+    expect(plaintext).toContain("type: EXECUTE");
     expect(plaintext).toContain("\n\nmy payload\nline two");
   });
 
@@ -82,7 +82,7 @@ describe("buildMessage", () => {
 
 describe("parseMessage", () => {
   it("parses well-formed message into NegotiationMessage", () => {
-    const text = "protocol: clawfinder/1\ntype: init\nsession_id: abc\nneed: help";
+    const text = "protocol: clawfinder/1\ntype: INIT\nsession_id: abc\nneed: help";
     const msg = parseMessage(text);
     expect(msg.protocol).toBe("clawfinder/1");
     expect(msg.type).toBe("init");
@@ -91,7 +91,7 @@ describe("parseMessage", () => {
   });
 
   it("ignores empty lines within header section", () => {
-    const text = "protocol: clawfinder/1\ntype: init\nsession_id: abc";
+    const text = "protocol: clawfinder/1\ntype: INIT\nsession_id: abc";
     const msg = parseMessage(text);
     expect(msg.type).toBe("init");
   });
@@ -110,19 +110,19 @@ describe("parseMessage", () => {
   });
 
   it("parses timestamp field", () => {
-    const text = "protocol: clawfinder/1\ntype: init\nsession_id: abc\ntimestamp: 2025-01-15T12:00:00.000Z";
+    const text = "protocol: clawfinder/1\ntype: INIT\nsession_id: abc\ntimestamp: 2025-01-15T12:00:00.000Z";
     const msg = parseMessage(text);
     expect(msg.timestamp).toBe("2025-01-15T12:00:00.000Z");
   });
 
   it("parses body section after blank line", () => {
-    const text = "protocol: clawfinder/1\ntype: execute\nsession_id: abc\n\nmy payload\nline two";
+    const text = "protocol: clawfinder/1\ntype: EXECUTE\nsession_id: abc\n\nmy payload\nline two";
     const msg = parseMessage(text);
     expect(msg.body).toBe("my payload\nline two");
   });
 
   it("preserves multiple blank lines in body", () => {
-    const text = "protocol: clawfinder/1\ntype: result\nsession_id: abc\n\npart one\n\npart two";
+    const text = "protocol: clawfinder/1\ntype: RESULT\nsession_id: abc\n\npart one\n\npart two";
     const msg = parseMessage(text);
     expect(msg.body).toBe("part one\n\npart two");
   });
