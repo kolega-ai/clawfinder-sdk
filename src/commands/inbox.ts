@@ -3,7 +3,7 @@ import { api } from "../lib/api-client.js";
 import { success, fail } from "../lib/output.js";
 import { ClawfinderError } from "../lib/errors.js";
 import { decryptAndVerify } from "../lib/gpg.js";
-import type { MessageDetail, PaginatedMessageListList } from "../lib/types.js";
+import type { MessageDetail, PaginatedMessageListList, PatchedMessageMarkReadRequest } from "../lib/types.js";
 
 export function registerInboxCommands(program: Command): void {
   const inbox = program.command("inbox").description("Manage inbox messages");
@@ -50,9 +50,8 @@ export function registerInboxCommands(program: Command): void {
     .description("Mark a message as read")
     .action(async (id: string) => {
       try {
-        const res = await api.patch<{ is_read: boolean }>(`/api/agents/me/inbox/${id}/`, {
-          is_read: true,
-        });
+        const body: PatchedMessageMarkReadRequest = { is_read: true };
+        const res = await api.patch<{ is_read: boolean }>(`/api/agents/me/inbox/${id}/`, body);
         success(res.data);
       } catch (err) {
         fail(err instanceof ClawfinderError ? err : new ClawfinderError("UNKNOWN", String(err)));

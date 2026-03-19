@@ -5,7 +5,43 @@ import { storeApiKey } from "../lib/credential-store.js";
 import { exportPublicKey } from "../lib/gpg.js";
 import { success, fail, log } from "../lib/output.js";
 import { ClawfinderError, ValidationError } from "../lib/errors.js";
-import type { AgentProfile, AgentPublic, AgentRegistration } from "../lib/types.js";
+import type { AgentProfile, AgentPublic, AgentRegistration, AgentRegistrationRequest, PatchedAgentProfileRequest } from "../lib/types.js";
+
+const VALID_CONTACT_METHODS = ["email", "index_mailbox", "telegram", "whatsapp"] as const;
+const VALID_PAYMENT_METHODS = ["invoice", "lobster.cash"] as const;
+
+type ContactMethod = (typeof VALID_CONTACT_METHODS)[number];
+type PaymentMethod = (typeof VALID_PAYMENT_METHODS)[number];
+
+function parseContactMethods(entries: string[]): { method: ContactMethod; handle: string }[] {
+  return entries.map((entry) => {
+    const idx = entry.indexOf(":");
+    if (idx === -1) {
+      throw new ValidationError(
+        `Invalid contact method format: "${entry}". Expected type:handle (e.g. email:me@example.com)`
+      );
+    }
+    const method = entry.slice(0, idx);
+    if (!(VALID_CONTACT_METHODS as readonly string[]).includes(method)) {
+      throw new ValidationError(
+        `Invalid contact method "${method}". Must be one of: ${VALID_CONTACT_METHODS.join(", ")}`
+      );
+    }
+    return { method: method as ContactMethod, handle: entry.slice(idx + 1) };
+  });
+}
+
+function parsePaymentMethods(csv: string): PaymentMethod[] {
+  const methods = csv.split(",").map((m) => m.trim());
+  for (const method of methods) {
+    if (!(VALID_PAYMENT_METHODS as readonly string[]).includes(method)) {
+      throw new ValidationError(
+        `Invalid payment method "${method}". Must be one of: ${VALID_PAYMENT_METHODS.join(", ")}`
+      );
+    }
+  }
+  return methods as PaymentMethod[];
+}
 
 export function registerAgentCommands(program: Command): void {
   const agent = program.command("agent").description("Manage agent identity");
@@ -15,6 +51,8 @@ export function registerAgentCommands(program: Command): void {
     .description("Register a new agent")
     .requiredOption("--name <name>", "Agent display name")
     .requiredOption("--username <username>", "Unique username")
+    .option("--payment-methods <methods>", "Comma-separated payment methods: invoice, lobster.cash")
+    .option("--contact-method <type:handle>", "Contact method as type:handle (repeatable)", collect, [])
     .action(async (opts) => {
       try {
         let pgpKey: string;
@@ -26,11 +64,19 @@ export function registerAgentCommands(program: Command): void {
           );
         }
 
-        const body = {
+        const body: Partial<AgentRegistrationRequest> = {
           name: opts.name,
           username: opts.username,
           pgp_key: pgpKey,
         };
+
+        if (opts.paymentMethods !== undefined) {
+          body.payment_methods = parsePaymentMethods(opts.paymentMethods);
+        }
+
+        if (opts.contactMethod.length > 0) {
+          body.contact_methods = parseContactMethods(opts.contactMethod);
+        }
 
         const res = await api.post<AgentRegistration & { api_key?: string }>(
           "/api/agents/register/",
@@ -82,7 +128,7 @@ export function registerAgentCommands(program: Command): void {
     .option("--contact-method <type:handle>", "Contact method as type:handle (repeatable)", collect, [])
     .action(async (opts) => {
       try {
-        const body: Record<string, unknown> = {};
+        const body: PatchedAgentProfileRequest = {};
 
         if (opts.name !== undefined) body.name = opts.name;
 
@@ -91,19 +137,11 @@ export function registerAgentCommands(program: Command): void {
         }
 
         if (opts.paymentMethods !== undefined) {
-          body.payment_methods = opts.paymentMethods.split(",").map((m: string) => m.trim());
+          body.payment_methods = parsePaymentMethods(opts.paymentMethods);
         }
 
         if (opts.contactMethod.length > 0) {
-          body.contact_methods = opts.contactMethod.map((entry: string) => {
-            const idx = entry.indexOf(":");
-            if (idx === -1) {
-              throw new ValidationError(
-                `Invalid contact method format: "${entry}". Expected type:handle (e.g. email:me@example.com)`
-              );
-            }
-            return { method: entry.slice(0, idx), handle: entry.slice(idx + 1) };
-          });
+          body.contact_methods = parseContactMethods(opts.contactMethod);
         }
 
         if (Object.keys(body).length === 0) {

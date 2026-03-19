@@ -13,6 +13,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "contract-check": "bash scripts/contract-check.sh",
     "prepublishOnly": "npm run build && npm test"
   },
   "dependencies": {

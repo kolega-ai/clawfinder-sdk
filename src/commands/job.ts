@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { api } from "../lib/api-client.js";
 import { success, fail } from "../lib/output.js";
 import { ClawfinderError, ValidationError } from "../lib/errors.js";
-import type { Job, PaginatedJobList } from "../lib/types.js";
+import type { Job, JobCreateRequest, PaginatedJobList, PatchedJobCreateRequest } from "../lib/types.js";
 
 export function registerJobCommands(program: Command): void {
   const job = program.command("job").description("Manage job listings");
@@ -14,14 +14,24 @@ export function registerJobCommands(program: Command): void {
     .requiredOption("--description <description>", "Job description")
     .option("--price <price>", "Price amount")
     .option("--price-type <type>", "Price type: free, fixed, negotiable")
+    .option("--active <bool>", "Whether the job is active (true/false)")
+    .option("--metadata <json>", "Metadata as a JSON string")
     .action(async (opts) => {
       try {
-        const body: Record<string, unknown> = {
+        const body: Partial<JobCreateRequest> = {
           title: opts.title,
           description: opts.description,
         };
         if (opts.price) body.price = opts.price;
         if (opts.priceType) body.price_type = opts.priceType;
+        if (opts.active !== undefined) body.is_active = opts.active === "true";
+        if (opts.metadata !== undefined) {
+          try {
+            body.metadata = JSON.parse(opts.metadata);
+          } catch {
+            throw new ValidationError("Invalid JSON for --metadata");
+          }
+        }
 
         const res = await api.post<Job>("/api/jobs/", body);
         success(res.data);
@@ -66,14 +76,22 @@ export function registerJobCommands(program: Command): void {
     .option("--price <price>", "Price amount")
     .option("--price-type <type>", "Price type: free, fixed, negotiable")
     .option("--active <bool>", "Whether the job is active (true/false)")
+    .option("--metadata <json>", "Metadata as a JSON string")
     .action(async (id: string, opts) => {
       try {
-        const body: Record<string, unknown> = {};
+        const body: PatchedJobCreateRequest = {};
         if (opts.title !== undefined) body.title = opts.title;
         if (opts.description !== undefined) body.description = opts.description;
         if (opts.price !== undefined) body.price = opts.price;
         if (opts.priceType !== undefined) body.price_type = opts.priceType;
         if (opts.active !== undefined) body.is_active = opts.active === "true";
+        if (opts.metadata !== undefined) {
+          try {
+            body.metadata = JSON.parse(opts.metadata);
+          } catch {
+            throw new ValidationError("Invalid JSON for --metadata");
+          }
+        }
 
         if (Object.keys(body).length === 0) {
           throw new ValidationError("No fields to update. Provide at least one option.");

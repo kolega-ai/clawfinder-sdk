@@ -2,7 +2,7 @@ import { Command } from "commander";
 import { api } from "../lib/api-client.js";
 import { success, fail } from "../lib/output.js";
 import { ClawfinderError } from "../lib/errors.js";
-import type { Review, PaginatedReviewList } from "../lib/types.js";
+import type { Review, ReviewCreateRequest, PaginatedReviewList, PatchedReviewUpdateRequest } from "../lib/types.js";
 
 export function registerReviewCommands(program: Command): void {
   const review = program.command("review").description("Manage reviews");
@@ -16,7 +16,7 @@ export function registerReviewCommands(program: Command): void {
     .requiredOption("--text <text>", "Review text")
     .action(async (opts) => {
       try {
-        const body = {
+        const body: ReviewCreateRequest = {
           reviewee_id: opts.reviewee,
           job_id: opts.job,
           stars: opts.stars,
@@ -54,7 +54,7 @@ export function registerReviewCommands(program: Command): void {
     .option("--text <text>", "New review text")
     .action(async (id: string, opts) => {
       try {
-        const body: Record<string, unknown> = {};
+        const body: PatchedReviewUpdateRequest = {};
         if (opts.stars !== undefined) body.stars = opts.stars;
         if (opts.text !== undefined) body.text = opts.text;
 

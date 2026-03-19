@@ -105,6 +105,65 @@ describe("agent register", () => {
     expect(json.ok).toBe(false);
     expect(json.error.code).toBe("API_ERROR");
   });
+
+  it("includes payment_methods when --payment-methods is provided", async () => {
+    mockExportPublicKey.mockResolvedValue("PGP-KEY");
+    mockApi.post.mockResolvedValue({ ok: true, status: 201, data: { id: "a1" } } as any);
+    await run("agent", "register", "--name", "Bob", "--username", "bob", "--payment-methods", "invoice,lobster.cash");
+    const body = mockApi.post.mock.calls[0][1] as any;
+    expect(body.payment_methods).toEqual(["invoice", "lobster.cash"]);
+  });
+
+  it("includes contact_methods when --contact-method is provided", async () => {
+    mockExportPublicKey.mockResolvedValue("PGP-KEY");
+    mockApi.post.mockResolvedValue({ ok: true, status: 201, data: { id: "a1" } } as any);
+    await run("agent", "register", "--name", "Bob", "--username", "bob", "--contact-method", "email:me@x.com");
+    const body = mockApi.post.mock.calls[0][1] as any;
+    expect(body.contact_methods).toEqual([{ method: "email", handle: "me@x.com" }]);
+  });
+
+  it("supports multiple --contact-method flags", async () => {
+    mockExportPublicKey.mockResolvedValue("PGP-KEY");
+    mockApi.post.mockResolvedValue({ ok: true, status: 201, data: { id: "a1" } } as any);
+    await run("agent", "register", "--name", "Bob", "--username", "bob", "--contact-method", "email:me@x.com", "--contact-method", "telegram:@bob");
+    const body = mockApi.post.mock.calls[0][1] as any;
+    expect(body.contact_methods).toEqual([
+      { method: "email", handle: "me@x.com" },
+      { method: "telegram", handle: "@bob" },
+    ]);
+  });
+
+  it("fails with VALIDATION_ERROR for contact method without colon", async () => {
+    mockExportPublicKey.mockResolvedValue("PGP-KEY");
+    await run("agent", "register", "--name", "Bob", "--username", "bob", "--contact-method", "nocolon");
+    const json = output.getStderrJson();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("fails with VALIDATION_ERROR for invalid contact method type", async () => {
+    mockExportPublicKey.mockResolvedValue("PGP-KEY");
+    await run("agent", "register", "--name", "Bob", "--username", "bob", "--contact-method", "invalid_type:handle");
+    const json = output.getStderrJson();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.message).toContain("invalid_type");
+  });
+
+  it("fails with VALIDATION_ERROR for invalid payment method", async () => {
+    mockExportPublicKey.mockResolvedValue("PGP-KEY");
+    await run("agent", "register", "--name", "Bob", "--username", "bob", "--payment-methods", "invalid");
+    const json = output.getStderrJson();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.message).toContain("invalid");
+  });
+
+  it("does not include payment_methods or contact_methods when not provided", async () => {
+    mockExportPublicKey.mockResolvedValue("PGP-KEY");
+    mockApi.post.mockResolvedValue({ ok: true, status: 201, data: { id: "a1" } } as any);
+    await run("agent", "register", "--name", "Bob", "--username", "bob");
+    const body = mockApi.post.mock.calls[0][1] as any;
+    expect(body).not.toHaveProperty("payment_methods");
+    expect(body).not.toHaveProperty("contact_methods");
+  });
 });
 
 describe("agent me", () => {
@@ -170,6 +229,20 @@ describe("agent update", () => {
     await run("agent", "update", "--contact-method", "nocolon");
     const json = output.getStderrJson();
     expect(json.error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("fails with VALIDATION_ERROR for invalid contact method type", async () => {
+    await run("agent", "update", "--contact-method", "invalid_type:handle");
+    const json = output.getStderrJson();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.message).toContain("invalid_type");
+  });
+
+  it("fails with VALIDATION_ERROR for invalid payment method", async () => {
+    await run("agent", "update", "--payment-methods", "invalid");
+    const json = output.getStderrJson();
+    expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.message).toContain("invalid");
   });
 
   it("fails with VALIDATION_ERROR when no options provided", async () => {

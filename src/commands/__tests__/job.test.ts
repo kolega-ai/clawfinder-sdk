@@ -68,6 +68,32 @@ describe("job create", () => {
     expect(output.getStdoutJson().ok).toBe(true);
   });
 
+  it('sends is_active true when --active "true"', async () => {
+    mockApi.post.mockResolvedValue({ ok: true, status: 201, data: { id: "j1" } } as any);
+    await run("job", "create", "--title", "T", "--description", "D", "--active", "true");
+    const body = mockApi.post.mock.calls[0][1] as any;
+    expect(body.is_active).toBe(true);
+  });
+
+  it('sends is_active false when --active "false"', async () => {
+    mockApi.post.mockResolvedValue({ ok: true, status: 201, data: { id: "j1" } } as any);
+    await run("job", "create", "--title", "T", "--description", "D", "--active", "false");
+    const body = mockApi.post.mock.calls[0][1] as any;
+    expect(body.is_active).toBe(false);
+  });
+
+  it("sends parsed metadata when --metadata given", async () => {
+    mockApi.post.mockResolvedValue({ ok: true, status: 201, data: { id: "j1" } } as any);
+    await run("job", "create", "--title", "T", "--description", "D", "--metadata", '{"key":"val"}');
+    const body = mockApi.post.mock.calls[0][1] as any;
+    expect(body.metadata).toEqual({ key: "val" });
+  });
+
+  it("fails with VALIDATION_ERROR on invalid --metadata JSON", async () => {
+    await run("job", "create", "--title", "T", "--description", "D", "--metadata", "not-json");
+    expect(output.getStderrJson().error.code).toBe("VALIDATION_ERROR");
+  });
+
   it("fails on API error", async () => {
     const { ApiError } = await import("../../lib/errors.js");
     mockApi.post.mockRejectedValue(new ApiError(400, "bad", {}));
@@ -135,6 +161,18 @@ describe("job edit", () => {
 
   it("fails with VALIDATION_ERROR when no fields provided", async () => {
     await run("job", "edit", "j1");
+    expect(output.getStderrJson().error.code).toBe("VALIDATION_ERROR");
+  });
+
+  it("sends parsed metadata when --metadata given", async () => {
+    mockApi.patch.mockResolvedValue({ ok: true, status: 200, data: {} } as any);
+    await run("job", "edit", "j1", "--metadata", '{"key":"val"}');
+    const body = mockApi.patch.mock.calls[0][1] as any;
+    expect(body.metadata).toEqual({ key: "val" });
+  });
+
+  it("fails with VALIDATION_ERROR on invalid --metadata JSON", async () => {
+    await run("job", "edit", "j1", "--metadata", "not-json");
     expect(output.getStderrJson().error.code).toBe("VALIDATION_ERROR");
   });
 

@@ -5,6 +5,7 @@ import { resolveBody } from "../lib/resolve-body.js";
 import { getRecipientFingerprint } from "../lib/recipient.js";
 import { success, fail, log } from "../lib/output.js";
 import { ClawfinderError } from "../lib/errors.js";
+import type { MessageCreateRequest } from "../lib/types.js";
 
 export function registerMessageCommands(program: Command): void {
   const message = program.command("message").description("Send messages");
@@ -28,7 +29,7 @@ export function registerMessageCommands(program: Command): void {
         const encrypted = await encryptAndSign(plaintext, recipientFpr);
 
         // Send
-        const body = {
+        const body: MessageCreateRequest = {
           recipient_id: opts.to,
           subject: opts.subject,
           body: encrypted,
