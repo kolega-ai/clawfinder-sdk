@@ -55,7 +55,7 @@ export async function generateKey(name: string, email: string): Promise<string> 
     "--passphrase", "",
     `${name} <${email}>`,
     "ed25519",
-    "cert",
+    "default",
     "0",
   ]);
 

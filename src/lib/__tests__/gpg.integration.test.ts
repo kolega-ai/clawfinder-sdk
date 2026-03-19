@@ -11,7 +11,6 @@ import {
   encryptAndSign,
   decryptAndVerify,
   listKeys,
-  gpg,
 } from "../gpg.js";
 
 const execFileAsync = promisify(execFile);
@@ -24,25 +23,6 @@ async function killGpgAgent(home: string): Promise<void> {
   } catch {
     // agent may not be running
   }
-}
-
-/** Generate a key with sign + cert on primary and an encr subkey. */
-async function generateSignableKey(name: string, email: string): Promise<string> {
-  await gpg([
-    "--quick-generate-key",
-    "--passphrase", "",
-    `${name} <${email}>`,
-    "ed25519",
-    "default",
-    "0",
-  ]);
-  const { stdout } = await gpg(["--with-colons", "--fingerprint", `${name} <${email}>`]);
-  let fpr = "";
-  for (const line of stdout.split("\n")) {
-    if (line.startsWith("fpr:")) { fpr = line.split(":")[9]; break; }
-  }
-  await gpg(["--quick-add-key", "--passphrase", "", fpr, "cv25519", "encr", "0"]);
-  return fpr;
 }
 
 beforeEach(async () => {
@@ -77,8 +57,7 @@ describe("GPG integration", () => {
   }, 30_000);
 
   it("encryptAndSign + decryptAndVerify round-trip", async () => {
-    // Need sign capability on primary for signing, so use a custom key gen
-    const fpr = await generateSignableKey("Test User", "test@example.com");
+    const fpr = await generateKey("Test User", "test@example.com");
 
     const plaintext = "Hello, secret world!";
     const ciphertext = await encryptAndSign(plaintext, fpr);
