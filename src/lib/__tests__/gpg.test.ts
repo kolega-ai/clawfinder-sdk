@@ -1,18 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { promisify } from "node:util";
+import { EventEmitter, Writable } from "node:stream";
 
-const { execFilePromiseMock } = vi.hoisted(() => ({
-  execFilePromiseMock: vi.fn(),
-}));
+const { spawnMock, spawnResults } = vi.hoisted(() => {
+  const spawnResults: Array<{ stdout?: string; stderr?: string; code?: number; error?: Error }> = [];
+  const spawnMock = vi.fn().mockImplementation(() => {
+    const result = spawnResults.shift() ?? { stdout: "", stderr: "", code: 0 };
+    const proc = new EventEmitter() as any;
+    proc.stdout = new EventEmitter();
+    proc.stderr = new EventEmitter();
+    proc.stdin = new Writable({ write(_chunk, _enc, cb) { cb(); } });
 
-vi.mock("node:child_process", () => {
-  const fn = vi.fn() as any;
-  fn[promisify.custom] = execFilePromiseMock;
-  return { execFile: fn };
+    if (result.error) {
+      process.nextTick(() => proc.emit("error", result.error));
+    } else {
+      process.nextTick(() => {
+        if (result.stdout) proc.stdout.emit("data", Buffer.from(result.stdout));
+        if (result.stderr) proc.stderr.emit("data", Buffer.from(result.stderr));
+        proc.emit("close", result.code ?? 0);
+      });
+    }
+    return proc;
+  });
+  return { spawnMock, spawnResults };
 });
+
+vi.mock("node:child_process", () => ({
+  spawn: spawnMock,
+}));
 
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn().mockResolvedValue(undefined),
+  writeFile: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("../credential-store.js", () => ({
@@ -31,22 +49,14 @@ import {
 import { GpgError } from "../errors.js";
 
 function mockGpgCalls(
-  results: Array<{ stdout?: string; stderr?: string; error?: any }>,
+  results: Array<{ stdout?: string; stderr?: string; code?: number; error?: Error }>,
 ) {
-  for (const r of results) {
-    if (r.error) {
-      execFilePromiseMock.mockRejectedValueOnce(r.error);
-    } else {
-      execFilePromiseMock.mockResolvedValueOnce({
-        stdout: r.stdout ?? "",
-        stderr: r.stderr ?? "",
-      });
-    }
-  }
+  spawnResults.push(...results);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
+  spawnResults.length = 0;
   delete process.env.CLAWFINDER_GNUPGHOME;
 });
 
@@ -74,9 +84,7 @@ describe("generateKey", () => {
   });
 
   it("throws GpgError on gpg failure", async () => {
-    const error = new Error("gpg failed") as any;
-    error.stderr = "gpg failed";
-    mockGpgCalls([{ error }]);
+    mockGpgCalls([{ stderr: "gpg failed", code: 1 }]);
     await expect(generateKey("Test", "test@example.com")).rejects.toThrow(GpgError);
   });
 });
@@ -132,15 +140,23 @@ describe("listKeys", () => {
 });
 
 describe("gpg wrapper", () => {
-  it("throws GpgError wrapping stderr on execFile rejection", async () => {
-    const error = new Error("command failed") as any;
-    error.stderr = "gpg: error details";
-    mockGpgCalls([{ error }]);
+  it("throws GpgError wrapping stderr on non-zero exit", async () => {
+    mockGpgCalls([{ stderr: "gpg: error details", code: 2 }]);
     try {
       await exportPublicKey();
     } catch (e: any) {
       expect(e).toBeInstanceOf(GpgError);
       expect(e.message).toContain("gpg: error details");
+    }
+  });
+
+  it("throws GpgError on spawn error", async () => {
+    mockGpgCalls([{ error: new Error("spawn ENOENT") }]);
+    try {
+      await listKeys();
+    } catch (e: any) {
+      expect(e).toBeInstanceOf(GpgError);
+      expect(e.message).toContain("spawn ENOENT");
     }
   });
 });

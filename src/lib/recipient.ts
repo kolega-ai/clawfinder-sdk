@@ -1,11 +1,7 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 import { api } from "./api-client.js";
-import { importKey, gnupgHome } from "./gpg.js";
+import { importKey, gpg } from "./gpg.js";
 import { ValidationError } from "./errors.js";
 import type { AgentPublic } from "./types.js";
-
-const execFileAsync = promisify(execFile);
 
 export async function getRecipientFingerprint(recipientId: string): Promise<string> {
   const res = await api.get<AgentPublic>(`/api/agents/${recipientId}/`, { auth: false });
@@ -14,14 +10,8 @@ export async function getRecipientFingerprint(recipientId: string): Promise<stri
 
   await importKey(pgpKey);
 
-  const home = gnupgHome();
-  const { stdout } = await execFileAsync("gpg", [
-    "--homedir", home, "--batch", "--with-colons", "--fingerprint", recipientId,
-  ], { encoding: "utf-8" }).catch(async () => {
-    return execFileAsync("gpg", [
-      "--homedir", home, "--batch", "--with-colons", "--list-keys",
-    ], { encoding: "utf-8" });
-  });
+  const { stdout } = await gpg(["--with-colons", "--fingerprint", recipientId])
+    .catch(() => gpg(["--with-colons", "--list-keys"]));
 
   let fpr = "";
   for (const line of String(stdout).split("\n")) {

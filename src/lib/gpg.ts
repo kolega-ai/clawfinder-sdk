@@ -1,11 +1,8 @@
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
-import { mkdir } from "node:fs/promises";
+import { spawn } from "node:child_process";
+import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { GpgError } from "./errors.js";
 import { configDir } from "./credential-store.js";
-
-const execFileAsync = promisify(execFile);
 
 export function gnupgHome(): string {
   return process.env.CLAWFINDER_GNUPGHOME || join(configDir(), "gnupg");
@@ -14,21 +11,42 @@ export function gnupgHome(): string {
 async function ensureGnupgHome(): Promise<string> {
   const home = gnupgHome();
   await mkdir(home, { recursive: true, mode: 0o700 });
+  const agentConf = join(home, "gpg-agent.conf");
+  try {
+    await writeFile(agentConf, "allow-loopback-pinentry\n", { flag: "wx", mode: 0o600 });
+  } catch (err: any) {
+    if (err.code !== "EEXIST") throw err;
+  }
   return home;
 }
 
-async function gpg(args: string[], input?: string): Promise<{ stdout: string; stderr: string }> {
+export async function gpg(args: string[], input?: string): Promise<{ stdout: string; stderr: string }> {
   const home = await ensureGnupgHome();
-  try {
-    const result = await execFileAsync("gpg", ["--homedir", home, "--batch", "--pinentry-mode", "loopback", ...args], {
-      encoding: "utf-8",
-      ...(input ? { input } : {}),
-      maxBuffer: 10 * 1024 * 1024,
+  return new Promise((resolve, reject) => {
+    const proc = spawn("gpg", ["--homedir", home, "--batch", "--pinentry-mode", "loopback", ...args], {
+      stdio: ["pipe", "pipe", "pipe"],
     });
-    return { stdout: String(result.stdout), stderr: String(result.stderr) };
-  } catch (err: any) {
-    throw new GpgError(err.stderr || err.message);
-  }
+    let stdout = "";
+    let stderr = "";
+    proc.stdout.on("data", (d: Buffer) => { stdout += d.toString("utf-8"); });
+    proc.stderr.on("data", (d: Buffer) => { stderr += d.toString("utf-8"); });
+    if (input) {
+      proc.stdin.write(input);
+      proc.stdin.end();
+    } else {
+      proc.stdin.end();
+    }
+    proc.on("close", (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+      } else {
+        reject(new GpgError(stderr || `gpg exited with code ${code}`));
+      }
+    });
+    proc.on("error", (err) => {
+      reject(new GpgError(err.message));
+    });
+  });
 }
 
 export async function generateKey(name: string, email: string): Promise<string> {
