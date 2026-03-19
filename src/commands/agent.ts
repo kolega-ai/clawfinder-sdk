@@ -13,21 +13,23 @@ const VALID_PAYMENT_METHODS = ["invoice", "lobster.cash"] as const;
 type ContactMethod = (typeof VALID_CONTACT_METHODS)[number];
 type PaymentMethod = (typeof VALID_PAYMENT_METHODS)[number];
 
-function parseContactMethods(entries: string[]): { method: ContactMethod; handle: string }[] {
+function parseContactMethods(entries: string[]): { method: ContactMethod; handle?: string }[] {
   return entries.map((entry) => {
     const idx = entry.indexOf(":");
+    let method: string;
+    let handle: string | undefined;
     if (idx === -1) {
-      throw new ValidationError(
-        `Invalid contact method format: "${entry}". Expected type:handle (e.g. email:me@example.com)`
-      );
+      method = entry;
+    } else {
+      method = entry.slice(0, idx);
+      handle = entry.slice(idx + 1);
     }
-    const method = entry.slice(0, idx);
     if (!(VALID_CONTACT_METHODS as readonly string[]).includes(method)) {
       throw new ValidationError(
         `Invalid contact method "${method}". Must be one of: ${VALID_CONTACT_METHODS.join(", ")}`
       );
     }
-    return { method: method as ContactMethod, handle: entry.slice(idx + 1) };
+    return handle !== undefined ? { method: method as ContactMethod, handle } : { method: method as ContactMethod };
   });
 }
 
@@ -52,7 +54,7 @@ export function registerAgentCommands(program: Command): void {
     .requiredOption("--name <name>", "Agent display name")
     .requiredOption("--username <username>", "Unique username")
     .option("--payment-methods <methods>", "Comma-separated payment methods: invoice, lobster.cash")
-    .option("--contact-method <type:handle>", "Contact method as type:handle (repeatable)", collect, [])
+    .option("--contact-method <type:handle>", "Contact method (repeatable). Format: type or type:handle. Types: email, index_mailbox, telegram, whatsapp", collect, [])
     .action(async (opts) => {
       try {
         let pgpKey: string;
@@ -125,7 +127,7 @@ export function registerAgentCommands(program: Command): void {
     .option("--name <name>", "Agent display name")
     .option("--pgp-key-file <path>", "Path to ASCII-armored PGP public key file")
     .option("--payment-methods <methods>", "Comma-separated payment methods: invoice, lobster.cash")
-    .option("--contact-method <type:handle>", "Contact method as type:handle (repeatable)", collect, [])
+    .option("--contact-method <type:handle>", "Contact method (repeatable). Format: type or type:handle. Types: email, index_mailbox, telegram, whatsapp", collect, [])
     .action(async (opts) => {
       try {
         const body: PatchedAgentProfileRequest = {};

@@ -133,11 +133,21 @@ describe("agent register", () => {
     ]);
   });
 
-  it("fails with VALIDATION_ERROR for contact method without colon", async () => {
+  it("fails with VALIDATION_ERROR for invalid contact method name without colon", async () => {
     mockExportPublicKey.mockResolvedValue("PGP-KEY");
     await run("agent", "register", "--name", "Bob", "--username", "bob", "--contact-method", "nocolon");
     const json = output.getStderrJson();
     expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.message).toContain("nocolon");
+  });
+
+  it("supports contact method without handle", async () => {
+    mockExportPublicKey.mockResolvedValue("PGP-KEY");
+    mockApi.post.mockResolvedValue({ ok: true, status: 201, data: { id: "a1" } } as any);
+    await run("agent", "register", "--name", "Bob", "--username", "bob", "--contact-method", "index_mailbox");
+    const body = mockApi.post.mock.calls[0][1] as any;
+    expect(body.contact_methods).toEqual([{ method: "index_mailbox" }]);
+    expect(body.contact_methods[0]).not.toHaveProperty("handle");
   });
 
   it("fails with VALIDATION_ERROR for invalid contact method type", async () => {
@@ -225,10 +235,19 @@ describe("agent update", () => {
     expect(body.contact_methods).toEqual([{ method: "email", handle: "me@x.com" }]);
   });
 
-  it("fails with VALIDATION_ERROR for contact method without colon", async () => {
+  it("fails with VALIDATION_ERROR for invalid contact method name without colon", async () => {
     await run("agent", "update", "--contact-method", "nocolon");
     const json = output.getStderrJson();
     expect(json.error.code).toBe("VALIDATION_ERROR");
+    expect(json.error.message).toContain("nocolon");
+  });
+
+  it("supports contact method without handle", async () => {
+    mockApi.patch.mockResolvedValue({ ok: true, status: 200, data: {} } as any);
+    await run("agent", "update", "--contact-method", "index_mailbox");
+    const body = mockApi.patch.mock.calls[0][1] as any;
+    expect(body.contact_methods).toEqual([{ method: "index_mailbox" }]);
+    expect(body.contact_methods[0]).not.toHaveProperty("handle");
   });
 
   it("fails with VALIDATION_ERROR for invalid contact method type", async () => {
