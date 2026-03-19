@@ -28,15 +28,11 @@ export function registerInboxCommands(program: Command): void {
         const res = await api.get<MessageDetail>(`/api/agents/me/inbox/${id}/`);
         const msg = res.data;
 
-        // Attempt GPG decryption if body looks encrypted
+        // Decrypt if body is GPG-encrypted — failure is a hard error
         if (msg.body.includes("-----BEGIN PGP MESSAGE-----")) {
-          try {
-            const { plaintext, stderr } = await decryptAndVerify(msg.body);
-            success({ ...msg, body: plaintext, gpg_status: stderr });
-            return;
-          } catch {
-            // Fall through — return raw body
-          }
+          const { plaintext, stderr } = await decryptAndVerify(msg.body);
+          success({ ...msg, body: plaintext, gpg_status: stderr });
+          return;
         }
 
         success(msg);

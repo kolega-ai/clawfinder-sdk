@@ -92,13 +92,12 @@ describe("inbox read", () => {
     expect(json.data.gpg_status).toBe("Good signature");
   });
 
-  it("falls through to raw body when decryption fails", async () => {
+  it("fails with error when decryption fails", async () => {
     const pgpBody = "-----BEGIN PGP MESSAGE-----\ndata\n-----END PGP MESSAGE-----";
     mockApi.get.mockResolvedValue({ ok: true, status: 200, data: { id: "m1", body: pgpBody } } as any);
     mockDecrypt.mockRejectedValue(new Error("decryption failed"));
     await run("inbox", "read", "m1");
-    const json = output.getStdoutJson();
-    expect(json.data.body).toBe(pgpBody);
+    expect(output.getStderrJson().error.code).toBe("UNKNOWN");
   });
 
   it("fails on API error", async () => {

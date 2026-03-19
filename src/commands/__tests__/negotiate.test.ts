@@ -54,6 +54,7 @@ beforeEach(() => {
   output = captureOutput();
   exitSpy = mockProcessExit();
   mockApi.post.mockResolvedValue({ ok: true, status: 201, data: {} } as any);
+  mockApi.get.mockResolvedValue({ ok: true, status: 200, data: { username: "testuser" } } as any);
 });
 
 async function run(...args: string[]) {
@@ -65,11 +66,14 @@ async function run(...args: string[]) {
 }
 
 describe("negotiate init", () => {
-  it("builds init message with job-ref and need fields", async () => {
+  it("fetches agent profile and builds init message with spec fields", async () => {
     await run("negotiate", "init", "--to", "agent-1", "--job-ref", "j1", "--need", "coding");
+    expect(mockApi.get).toHaveBeenCalledWith("/api/agents/me/");
     expect(mockBuildMessage).toHaveBeenCalledWith("init", {
-      "job-ref": "j1",
+      job_ref: "j1",
       need: "coding",
+      consumer_username: "testuser",
+      index_url: "https://clawfinder.dev",
     });
   });
 
@@ -86,6 +90,20 @@ describe("negotiate init", () => {
     const json = output.getStdoutJson();
     expect(json.data).toEqual({ session: "sess-123", type: "init", sent: true });
   });
+
+  it("uses CLAWFINDER_BASE_URL env var for index_url", async () => {
+    const orig = process.env.CLAWFINDER_BASE_URL;
+    process.env.CLAWFINDER_BASE_URL = "https://custom.dev";
+    try {
+      await run("negotiate", "init", "--to", "agent-1", "--job-ref", "j1", "--need", "coding");
+      expect(mockBuildMessage).toHaveBeenCalledWith("init", expect.objectContaining({
+        index_url: "https://custom.dev",
+      }));
+    } finally {
+      if (orig === undefined) delete process.env.CLAWFINDER_BASE_URL;
+      else process.env.CLAWFINDER_BASE_URL = orig;
+    }
+  });
 });
 
 describe("negotiate ack", () => {
@@ -94,6 +112,15 @@ describe("negotiate ack", () => {
     expect(mockBuildMessage).toHaveBeenCalledWith("ack", {
       capabilities: "python",
       pricing: "$100",
+    }, "s1");
+  });
+
+  it("passes constraints when provided", async () => {
+    await run("negotiate", "ack", "--session", "s1", "--to", "agent-1", "--capabilities", "python", "--pricing", "$100", "--constraints", "max 1h");
+    expect(mockBuildMessage).toHaveBeenCalledWith("ack", {
+      capabilities: "python",
+      pricing: "$100",
+      constraints: "max 1h",
     }, "s1");
   });
 
@@ -107,12 +134,22 @@ describe("negotiate ack", () => {
 });
 
 describe("negotiate propose", () => {
-  it("builds propose with capability/price/payment-method", async () => {
+  it("builds propose with capability/price/payment_method", async () => {
     await run("negotiate", "propose", "--session", "s1", "--to", "agent-1", "--capability", "code", "--price", "50", "--payment-method", "invoice");
     expect(mockBuildMessage).toHaveBeenCalledWith("propose", {
       capability: "code",
       price: "50",
-      "payment-method": "invoice",
+      payment_method: "invoice",
+    }, "s1");
+  });
+
+  it("passes parameters when provided", async () => {
+    await run("negotiate", "propose", "--session", "s1", "--to", "agent-1", "--capability", "code", "--price", "50", "--payment-method", "invoice", "--parameters", "lang=python");
+    expect(mockBuildMessage).toHaveBeenCalledWith("propose", {
+      capability: "code",
+      price: "50",
+      payment_method: "invoice",
+      parameters: "lang=python",
     }, "s1");
   });
 });
@@ -123,6 +160,15 @@ describe("negotiate counter", () => {
     expect(mockBuildMessage).toHaveBeenCalledWith("counter", {
       price: "75",
       reason: "too low",
+    }, "s1");
+  });
+
+  it("passes capability when provided", async () => {
+    await run("negotiate", "counter", "--session", "s1", "--to", "agent-1", "--price", "75", "--reason", "too low", "--capability", "review");
+    expect(mockBuildMessage).toHaveBeenCalledWith("counter", {
+      price: "75",
+      reason: "too low",
+      capability: "review",
     }, "s1");
   });
 });
@@ -144,12 +190,10 @@ describe("negotiate reject", () => {
 });
 
 describe("negotiate execute", () => {
-  it("calls resolveBody and includes body in execute message", async () => {
+  it("calls resolveBody and passes body as separate parameter", async () => {
     await run("negotiate", "execute", "--session", "s1", "--to", "agent-1", "--body", "payload");
     expect(mockResolveBody).toHaveBeenCalled();
-    expect(mockBuildMessage).toHaveBeenCalledWith("execute", {
-      body: "body-content",
-    }, "s1");
+    expect(mockBuildMessage).toHaveBeenCalledWith("execute", {}, "s1", "body-content");
   });
 
   it('outputs {session, type:"execute", sent:true}', async () => {
@@ -161,21 +205,35 @@ describe("negotiate execute", () => {
 });
 
 describe("negotiate result", () => {
-  it("calls resolveBody and includes invoice-amount/invoice-wallet/body", async () => {
+  it("passes invoice fields with spec names and body as separate parameter", async () => {
     await run("negotiate", "result", "--session", "s1", "--to", "agent-1",
-      "--invoice-amount", "100", "--invoice-wallet", "0xABC", "--body", "deliverable");
+      "--invoice-amount", "100", "--invoice-wallet", "0xABC",
+      "--invoice-payment-method", "crypto", "--body", "deliverable");
     expect(mockResolveBody).toHaveBeenCalled();
     expect(mockBuildMessage).toHaveBeenCalledWith("result", {
-      "invoice-amount": "100",
-      "invoice-wallet": "0xABC",
-      body: "body-content",
-    }, "s1");
+      invoice_amount: "100",
+      invoice_wallet_address: "0xABC",
+      invoice_payment_method: "crypto",
+    }, "s1", "body-content");
+  });
+
+  it("passes invoice_ref when provided", async () => {
+    await run("negotiate", "result", "--session", "s1", "--to", "agent-1",
+      "--invoice-amount", "100", "--invoice-wallet", "0xABC",
+      "--invoice-payment-method", "crypto", "--invoice-ref", "INV-001", "--body", "deliverable");
+    expect(mockBuildMessage).toHaveBeenCalledWith("result", {
+      invoice_amount: "100",
+      invoice_wallet_address: "0xABC",
+      invoice_payment_method: "crypto",
+      invoice_ref: "INV-001",
+    }, "s1", "body-content");
   });
 
   it('outputs {session, type:"result", sent:true}', async () => {
     mockBuildMessage.mockReturnValue({ plaintext: "msg", session: "s1" });
     await run("negotiate", "result", "--session", "s1", "--to", "agent-1",
-      "--invoice-amount", "100", "--invoice-wallet", "0xABC", "--body", "deliverable");
+      "--invoice-amount", "100", "--invoice-wallet", "0xABC",
+      "--invoice-payment-method", "crypto", "--body", "deliverable");
     const json = output.getStdoutJson();
     expect(json.data.type).toBe("result");
   });

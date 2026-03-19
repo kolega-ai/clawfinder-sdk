@@ -50,8 +50,14 @@ export type NegotiationMessageType =
 export interface NegotiationMessage {
   protocol: "clawfinder/1";
   type: NegotiationMessageType;
-  session: string;
+  session_id: string;
+  timestamp?: string;
   from?: string;
   to?: string;
+  consumer_username?: string;
+  index_url?: string;
+  invoice_wallet_address?: string;
+  invoice_payment_method?: string;
+  invoice_ref?: string;
   [key: string]: string | undefined;
 }

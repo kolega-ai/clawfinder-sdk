@@ -6,6 +6,7 @@ import { resolveBody } from "../lib/resolve-body.js";
 import { getRecipientFingerprint } from "../lib/recipient.js";
 import { success, fail, log } from "../lib/output.js";
 import { ClawfinderError } from "../lib/errors.js";
+import type { AgentProfile } from "../lib/types.js";
 
 async function sendProtocolMessage(
   to: string,
@@ -33,9 +34,13 @@ export function registerNegotiateCommands(program: Command): void {
     .requiredOption("--need <description>", "Description of need")
     .action(async (opts) => {
       try {
+        const profile = await api.get<AgentProfile>("/api/agents/me/");
+        const baseUrl = process.env.CLAWFINDER_BASE_URL || "https://clawfinder.dev";
         const { plaintext, session } = buildMessage("init", {
-          "job-ref": opts.jobRef,
+          job_ref: opts.jobRef,
           need: opts.need,
+          consumer_username: profile.data.username,
+          index_url: baseUrl,
         });
         await sendProtocolMessage(opts.to, `negotiate:init:${session}`, plaintext);
         success({ session, type: "init", sent: true });
@@ -51,12 +56,15 @@ export function registerNegotiateCommands(program: Command): void {
     .requiredOption("--to <id>", "Recipient agent ID")
     .requiredOption("--capabilities <caps>", "Available capabilities")
     .requiredOption("--pricing <pricing>", "Pricing information")
+    .option("--constraints <constraints>", "Constraints")
     .action(async (opts) => {
       try {
-        const { plaintext } = buildMessage("ack", {
+        const fields: Record<string, string> = {
           capabilities: opts.capabilities,
           pricing: opts.pricing,
-        }, opts.session);
+        };
+        if (opts.constraints) fields.constraints = opts.constraints;
+        const { plaintext } = buildMessage("ack", fields, opts.session);
         await sendProtocolMessage(opts.to, `negotiate:ack:${opts.session}`, plaintext);
         success({ session: opts.session, type: "ack", sent: true });
       } catch (err) {
@@ -72,13 +80,16 @@ export function registerNegotiateCommands(program: Command): void {
     .requiredOption("--capability <cap>", "Requested capability")
     .requiredOption("--price <price>", "Proposed price")
     .requiredOption("--payment-method <method>", "Payment method")
+    .option("--parameters <parameters>", "Parameters")
     .action(async (opts) => {
       try {
-        const { plaintext } = buildMessage("propose", {
+        const fields: Record<string, string> = {
           capability: opts.capability,
           price: opts.price,
-          "payment-method": opts.paymentMethod,
-        }, opts.session);
+          payment_method: opts.paymentMethod,
+        };
+        if (opts.parameters) fields.parameters = opts.parameters;
+        const { plaintext } = buildMessage("propose", fields, opts.session);
         await sendProtocolMessage(opts.to, `negotiate:propose:${opts.session}`, plaintext);
         success({ session: opts.session, type: "propose", sent: true });
       } catch (err) {
@@ -93,12 +104,15 @@ export function registerNegotiateCommands(program: Command): void {
     .requiredOption("--to <id>", "Recipient agent ID")
     .requiredOption("--price <price>", "Counter price")
     .requiredOption("--reason <reason>", "Reason for counter")
+    .option("--capability <cap>", "Capability")
     .action(async (opts) => {
       try {
-        const { plaintext } = buildMessage("counter", {
+        const fields: Record<string, string> = {
           price: opts.price,
           reason: opts.reason,
-        }, opts.session);
+        };
+        if (opts.capability) fields.capability = opts.capability;
+        const { plaintext } = buildMessage("counter", fields, opts.session);
         await sendProtocolMessage(opts.to, `negotiate:counter:${opts.session}`, plaintext);
         success({ session: opts.session, type: "counter", sent: true });
       } catch (err) {
@@ -149,9 +163,7 @@ export function registerNegotiateCommands(program: Command): void {
     .action(async (opts) => {
       try {
         const payload = resolveBody(opts);
-        const { plaintext } = buildMessage("execute", {
-          body: payload,
-        }, opts.session);
+        const { plaintext } = buildMessage("execute", {}, opts.session, payload);
         await sendProtocolMessage(opts.to, `negotiate:execute:${opts.session}`, plaintext);
         success({ session: opts.session, type: "execute", sent: true });
       } catch (err) {
@@ -166,16 +178,20 @@ export function registerNegotiateCommands(program: Command): void {
     .requiredOption("--to <id>", "Recipient agent ID")
     .requiredOption("--invoice-amount <amount>", "Invoice amount")
     .requiredOption("--invoice-wallet <wallet>", "Invoice wallet address")
+    .requiredOption("--invoice-payment-method <method>", "Invoice payment method")
+    .option("--invoice-ref <ref>", "Invoice reference")
     .option("--body <deliverable>", "Deliverable body")
     .option("--body-file <path>", "Read deliverable from file (use - for stdin)")
     .action(async (opts) => {
       try {
         const deliverable = resolveBody(opts);
-        const { plaintext } = buildMessage("result", {
-          "invoice-amount": opts.invoiceAmount,
-          "invoice-wallet": opts.invoiceWallet,
-          body: deliverable,
-        }, opts.session);
+        const fields: Record<string, string> = {
+          invoice_amount: opts.invoiceAmount,
+          invoice_wallet_address: opts.invoiceWallet,
+          invoice_payment_method: opts.invoicePaymentMethod,
+        };
+        if (opts.invoiceRef) fields.invoice_ref = opts.invoiceRef;
+        const { plaintext } = buildMessage("result", fields, opts.session, deliverable);
         await sendProtocolMessage(opts.to, `negotiate:result:${opts.session}`, plaintext);
         success({ session: opts.session, type: "result", sent: true });
       } catch (err) {

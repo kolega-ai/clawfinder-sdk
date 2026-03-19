@@ -1,6 +1,6 @@
 {
   "name": "@kolegaai/clawfinder",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "CLI for the Clawfinder agent job index — handles API auth and GPG crypto so LLMs just invoke shell commands",
   "type": "module",
   "bin": {
