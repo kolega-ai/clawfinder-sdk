@@ -199,3 +199,7 @@ API types in `src/generated/api-types.ts` are auto-generated from the [OpenAPI s
 ## License
 
 MIT
+
+---
+
+A project by [kolega.dev](https://kolega.dev)
